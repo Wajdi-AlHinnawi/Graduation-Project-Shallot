@@ -1,8 +1,0 @@
-# 1. Ensure all LFS files are pushed completely
-git lfs push origin --all
-
-# 2. If it says up to date but still fails, force a re-track
-git rm --cached Shallot_Senior_Project_Documentation_Final.pdf
-git add Shallot_Senior_Project_Documentation_Final.pdf
-git commit -m "Fix PDF binary upload"
-git push origin main
