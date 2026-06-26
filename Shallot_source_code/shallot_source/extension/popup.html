@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shallot</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="hero">
+      <div>
+        <div class="eyebrow">Privacy-Preserving Onion-Network</div>
+        <h1>Shallot</h1>
+        <p class="subtitle">Circuit control, relay health, session stats, key exchange, and route rotation.</p>
+      </div>
+      <div id="statusBadge" class="badge badge-offline">Offline</div>
+    </header>
+
+    <div class="top-actions">
+      <button id="enableBtn" class="btn btn-primary" title="Enables the local onion-routing engine. System proxy still needs to point to 127.0.0.1:8080.">Enable</button>
+      <button id="disableBtn" class="btn btn-danger" title="Disables onion routing in the local client. If system proxy remains on, browsing fails closed.">Disable</button>
+      <button id="refreshBtn" class="btn btn-secondary">Refresh</button>
+    </div>
+
+	<div id="systemProxyNotice" class="system-proxy-notice">
+	  <div class="notice-icon">i</div>
+	  <div>
+	    <strong id="systemProxyNoticeTitle">System proxy required</strong>
+	    <small id="systemProxyNoticeText">
+	      To send browser traffic into the onion network, turn on the system proxy manually:
+	      <span class="mono">127.0.0.1:8080</span>.
+	      The Enable button starts the onion-routing engine; it does not change Windows proxy settings.
+	    </small>
+
+	    <label class="proxy-confirm-row">
+	      <input id="systemProxyConfirmed" type="checkbox" />
+	      <span>I have enabled the Windows system proxy</span>
+	    </label>
+	  </div>
+	</div>
+
+    <div id="messageBox" class="message-box hidden"></div>
+
+    <div id="directoryCacheBanner" class="warning-banner hidden">
+      <div class="warning-icon">!</div>
+      <div class="warning-text">
+        <strong>Directory not live</strong>
+        <small id="directoryCacheBannerDetail">The client is not currently fetching the directory from the directory server, so contributors and other live updates will not be visible.</small>
+      </div>
+    </div>
+
+    <div id="httpWarningBanner" class="warning-banner hidden">
+      <div class="warning-icon">!</div>
+      <div class="warning-text">
+        <strong>Plain HTTP traffic observed</strong>
+        <small id="httpWarningDetail">Some sessions used plain HTTP. HTTPS sessions remain protected by TLS, but plain HTTP can be read by the exit relay. Some entries may be automatic browser/Windows connectivity checks.</small>
+      </div>
+    </div>
+
+    <section class="card" id="informationSection">
+      <div class="section-title">Information</div>
+
+      <div class="summary-grid">
+        <div class="metric"><div class="label">Routing</div><div id="routingState" class="value">Unknown</div></div>
+        <div class="metric"><div class="label">API</div><div id="apiState" class="value">Unknown</div></div>
+        <div class="metric"><div class="label">Proxy</div><div id="proxyValue" class="value mono wrap">127.0.0.1:8080</div></div>
+        <div class="metric"><div class="label">Control</div><div id="controlValue" class="value mono wrap">127.0.0.1:7070</div></div>
+      </div>
+
+      <div class="subsection-title">Current Circuit</div>
+      <div id="routeBox" class="route-box">Loading...</div>
+      <div class="route-meta">
+        <div class="mini-card"><span class="muted">Circuit ID</span><span id="circuitId" class="mono wrap">-</span></div>
+        <div class="mini-card"><span class="muted">Rotation in</span><span id="rotationCountdown" class="mono">-</span></div>
+        <div class="mini-card"><span class="muted">Mode</span><span id="rotationMode" class="mono">-</span></div>
+        <div class="mini-card"><span class="muted">Path Type</span><span id="routeModeLabel" class="mono wrap">-</span></div>
+        <div class="mini-card"><span class="muted">Previous Circuit</span><span id="previousCircuit" class="mono wrap">-</span></div>
+        <div class="mini-card"><span class="muted">Policy</span><span id="policyLabel" class="mono wrap small">-</span></div>
+      </div>
+
+      <div class="summary-grid session-stats-grid">
+        <div class="metric"><div class="label">Active Sessions</div><div id="activeSessions" class="value">0</div></div>
+        <div class="metric"><div class="label">Total Sessions</div><div id="totalSessions" class="value">0</div></div>
+        <div class="metric"><div class="label">Browser → Network</div><div id="bytesUp" class="value">0 B</div></div>
+        <div class="metric"><div class="label">Network → Browser</div><div id="bytesDown" class="value">0 B</div></div>
+        <div class="metric full"><div class="label">Uptime</div><div id="uptime" class="value">0s</div></div>
+      </div>
+    </section>
+
+    <section class="card" id="controlsSection">
+      <div class="section-title">Controls</div>
+
+      <div class="control-block">
+        <div class="subsection-title no-gap">Relay Pool</div>
+        <div class="relay-grid">
+          <div><div class="label">Entry Relays</div><div id="entryRelayPool" class="relay-pool"></div></div>
+          <div><div class="label">Middle Relays</div><div id="middleRelayPool" class="relay-pool"></div></div>
+          <div><div class="label">Exit Relays</div><div id="exitRelayPool" class="relay-pool"></div></div>
+        </div>
+      </div>
+
+      <div class="control-block action-block">
+        <button id="newCircuitBtn" class="btn btn-secondary full-button">New Route</button>
+        <div class="helper-text">Builds a fresh route for new sessions. The client randomly chooses one official entry, one official middle, and one official exit. If Contributor Path is enabled, it also inserts online contributor middle relays before the exit.</div>
+      </div>
+
+      <div class="control-block">
+        <div class="inline-label-row">
+          <div>
+            <div class="subsection-title no-gap">Preferred Entry Relay</div>
+            <div class="helper-text no-top">Lock new routes to a specific entry relay, or choose random selection so each new route can use any available entry.</div>
+          </div>
+        </div>
+        <div class="select-action-row">
+          <select id="entrySelect" class="select"></select>
+          <button id="applyEntryBtn" class="btn btn-secondary side-button">Apply</button>
+        </div>
+      </div>
+
+      <div class="control-block">
+        <div class="subsection-title no-gap">Auto Rotation</div>
+        <div class="helper-text no-top">Automatically rebuilds the route for new sessions after the selected interval. Existing open sessions keep their original route.</div>
+        <div class="auto-grid">
+          <div>
+            <div class="label">Auto Rotate</div>
+            <select id="autoRotateMode" class="select small-select">
+              <option value="on">Enabled</option>
+              <option value="off">Disabled</option>
+            </select>
+          </div>
+          <div>
+            <div class="label">Interval</div>
+            <select id="rotateIntervalSelect" class="select small-select">
+              <option value="300">5 min</option>
+              <option value="600">10 min</option>
+              <option value="900">15 min</option>
+            </select>
+          </div>
+          <button id="applyRotateBtn" class="btn btn-secondary side-button">Apply</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="sessionsSection">
+      <div class="section-title">Sessions</div>
+      <button id="resetSessionsBtn" class="btn btn-danger full-button compact-danger">Reset All Sessions</button>
+      <div class="helper-text">Clears the local dashboard session list and traffic counters. New browser connections will continue to appear normally.</div>
+
+      <div class="sessions-two-col">
+        <div>
+          <div class="subsection-title">Visited Websites</div>
+          <div id="visitedSitesContainer" class="visited-sites-container"><div class="empty">No visited websites yet.</div></div>
+        </div>
+        <div>
+          <div class="subsection-title">Top 20 Recent Sessions</div>
+          <div id="sessionsContainer" class="sessions-container"><div class="empty">No sessions yet.</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card security-card" id="securityFeaturesSection">
+      <div class="section-title">Added Security Features</div>
+      <div class="security-grid">
+        <div class="mini-card"><span class="muted">Key Exchange</span><strong id="keyExchangeLabel">-</strong></div>
+        <div class="mini-card"><span class="muted">Padding</span><strong id="paddingLabel">-</strong></div>
+      </div>
+
+      <label class="toggle-row">
+        <input id="paddingToggle" type="checkbox" />
+        <span>
+          <strong>Fixed-Size Cells</strong>
+          <small>Optional privacy mode. Pads relay-to-relay onion frames to the same size, trading speed and bandwidth for less packet-size leakage.</small>
+        </span>
+      </label>
+
+      <div class="settings-panel" id="directoryServerPanel">
+        <div class="wide-field">
+          <span class="muted"><strong>Directory Server</strong></span>
+          <div id="directoryServerStatusLine" class="mono small wrap" style="margin-top:4px;">Loading...</div>
+          <small class="muted">Configured at install time via tools/install_client.py.</small>
+        </div>
+      </div>
+
+      <label class="toggle-row">
+        <input id="contributorToggle" type="checkbox" />
+        <span>
+          <strong>Contribute as Middle Relay</strong>
+          <small>Registers this device as an extra middle hop for other users. It is never used as an entry or exit relay.</small>
+        </span>
+      </label>
+
+      <label class="toggle-row contributor-path-row">
+        <input id="contributorPathToggle" type="checkbox" />
+        <span>
+          <strong>Use Contributor Path</strong>
+          <small>Optional high-anonymity route. Uses the official Entry → Middle → Exit path and inserts online contributor middles before the exit.</small>
+        </span>
+      </label>
+
+      <div id="contributorSettings" class="settings-panel hidden">
+        <div class="settings-header">
+          <div>
+            <strong>Contributor Settings</strong>
+            <small>Only shown when contributor features are enabled.</small>
+          </div>
+        </div>
+        <div class="contributor-grid compact-grid">
+          <label>
+            <span class="muted">Advertised IP / Host</span>
+            <input id="contributorHost" class="input" placeholder="auto-detect or your reachable IP" />
+          </label>
+          <label>
+            <span class="muted">Port</span>
+            <input id="contributorPort" class="input" value="9022" />
+          </label>
+        </div>
+        <div id="contributorStatus" class="helper-text">Not contributing</div>
+
+        <div id="contributorPathOptions" class="contributor-grid contributor-route-grid hidden">
+          <label>
+            <span class="muted">Contributor Hops</span>
+            <select id="contributorHopSelect" class="select small-select">
+              <option value="1">1 contributor</option>
+              <option value="2">2 contributors</option>
+              <option value="3">3 contributors</option>
+            </select>
+          </label>
+          <div class="metric inline-metric compact-metric">
+            <div class="label">Online Contributors</div>
+            <div id="onlineContributorCount" class="value">0</div>
+          </div>
+        </div>
+        <div id="contributorPathStatus" class="helper-text">Contributor Path is off. Official Entry → Middle → Exit route is used.</div>
+      </div>
+    </section>
+  </div>
+  <script src="control_token.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

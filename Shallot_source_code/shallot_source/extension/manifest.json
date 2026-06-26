@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "Shallot — Privacy-Preserving Onion-Network",
+  "version": "1.0.0",
+  "description": "Browser controller for the Shallot onion-routing system.",
+  "permissions": [
+    "storage",
+    "proxy"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:7070/*",
+    "http://localhost:7070/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "action": {
+    "default_title": "Shallot",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none';"
+  }
+}

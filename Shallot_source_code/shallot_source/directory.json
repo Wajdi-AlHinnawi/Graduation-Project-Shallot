@@ -1,0 +1,10 @@
+{
+  "relays": [
+    {"id": "entry1", "role": "entry", "port": 9001, "enabled": true, "official": true, "contributor": false},
+    {"id": "entry2", "role": "entry", "port": 9011, "enabled": true, "official": true, "contributor": false},
+    {"id": "middle1", "role": "middle", "port": 9002, "enabled": true, "official": true, "contributor": false},
+    {"id": "middle2", "role": "middle", "port": 9012, "enabled": true, "official": true, "contributor": false},
+    {"id": "exit1", "role": "exit", "port": 9003, "enabled": true, "official": true, "contributor": false},
+    {"id": "exit2", "role": "exit", "port": 9013, "enabled": true, "official": true, "contributor": false}
+  ]
+}
